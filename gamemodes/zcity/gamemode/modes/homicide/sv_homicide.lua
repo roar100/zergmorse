@@ -71,6 +71,7 @@ MODE.LootTable = {
 		{6,"weapon_painkillers"},
 		{5,"weapon_bloodbag"},
 		{4,"weapon_walkie_talkie"},
+		{4,"weapon_police_phone"},
 		{3,"hg_flashlight"},
 		{3,"weapon_bigbandage_sh"},
 		{2,"weapon_medkit_sh"},
@@ -335,6 +336,10 @@ MODE.Types.standard = {
 		local inv = ply:GetNetVar("Inventory")
 		inv["Weapons"]["hg_flashlight"] = true
 		ply:SetNetVar("Inventory",inv)
+
+		if MODE.ApplySelectedTraitorSkillset then
+			MODE.ApplySelectedTraitorSkillset(ply)
+		end
 	end,
 	GunManLoot = function(ply)
 		if MODE.ApplyHeroLoadout then
@@ -753,6 +758,13 @@ function MODE:Intermission()
 	local player_count = 0
 
 	for k, ply in player.Iterator() do
+		ply.HMCDIsFox = false
+		ply:SetNWBool("HMCD_IsFox", false)
+		ply:SetNWString("HMCD_TraitorSkillset", "none")
+		ply:SetNWFloat("HMCD_FoxPhoneSpeedBoostUntil", 0)
+		ply:SetNWFloat("HMCD_FoxPhoneSpeedCooldown", 0)
+		ply:SetNWFloat("HMCD_FoxPhoneSpeedMultiplier", 1.25)
+
 		if ply:Team() == TEAM_SPECTATOR then continue end
 		ply:KillSilent()
 

@@ -107,7 +107,34 @@ local TraitorSkillsetSubRoles = {
 	["infiltrator"] = "traitor_infiltrator",
 	["assassin"] = "traitor_assasin",
 	["chemist"] = "traitor_chemist",
+	["fox"] = "traitor_fox",
 }
+
+local function GetSelectedTraitorSkillset(ply)
+	local loadout = ParseLoadoutString(ply:GetInfo("hmcd_traitor_loadout"))
+	return isstring(loadout.skillset) and loadout.skillset or "none", loadout
+end
+
+local function ApplySelectedTraitorSkillset(ply, skillset)
+	skillset = skillset or GetSelectedTraitorSkillset(ply)
+
+	local isFox = skillset == "fox"
+	ply.HMCDIsFox = isFox
+	ply:SetNWBool("HMCD_IsFox", isFox)
+	ply:SetNWString("HMCD_TraitorSkillset", skillset)
+	ply:SetNWFloat("HMCD_FoxPhoneSpeedBoostUntil", 0)
+	ply:SetNWFloat("HMCD_FoxPhoneSpeedCooldown", 0)
+	ply:SetNWFloat("HMCD_FoxPhoneSpeedMultiplier", 1.25)
+
+	if isFox then
+		ply.SubRole = "traitor_fox"
+	end
+
+	return skillset
+end
+
+MODE.GetSelectedTraitorSkillset = GetSelectedTraitorSkillset
+MODE.ApplySelectedTraitorSkillset = ApplySelectedTraitorSkillset
 
 local TraitorSidearmWeapons = {
 	["weapon_pm9"] = true,
@@ -124,6 +151,7 @@ local function ApplyTraitorLoadout(ply)
 	local skillset = loadout.skillset or "none"
 	local weaponsList = loadout.weapons or {}
 	ply.SubRole = TraitorSkillsetSubRoles[skillset] or ply.SubRole
+	ApplySelectedTraitorSkillset(ply, skillset)
 
 	ply.organism.stamina.max = 220
 	ply.organism.recoilmul = 1
@@ -146,8 +174,14 @@ local function ApplyTraitorLoadout(ply)
 	local hasPL15 = false
 	local hasTaser = false
 	local selectedSidearm = nil
+	local selectedExplosive = nil
 
 	for _, wep in ipairs(weaponsList) do
+		-- IED and FPV Drone share one loadout slot, including saved loadouts.
+		if wep == "weapon_traitor_ied" or wep == "weapon_dronecontroller_ful" then
+			if selectedExplosive then continue end
+			selectedExplosive = wep
+		end
 		-- PM9, P22, Tokarev, Tranquilizer and Taser share one sidearm slot.
 		-- The client menu already enforces this; keep a server-side guard too.
 		if TraitorSidearmWeapons[wep] then
@@ -336,6 +370,13 @@ Has no weapons or any tools.
 Despite being zombie, still bears appearance of a normal human.]],
 		Objective = "You're the zombie. Infect everyone to win. Avoid doctor.",
 		SpawnFunction = function(ply)
+		end,
+	},
+	["traitor_fox"] = {
+		Name = "The Fox",
+		Description = [[You can hear and track police phone calls while they are being made.]],
+		SpawnFunction = function(ply)
+			ApplyTraitorLoadout(ply)
 		end,
 	},
 }

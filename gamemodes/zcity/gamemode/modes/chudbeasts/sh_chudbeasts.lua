@@ -12,3 +12,10 @@ function MODE:PlayerCanLegAttack(ply)
         return false
     end
 end
+
+-- Props and ragdolls remain usable; direct player grabs are blocked.
+hook.Add("AllowPlayerPickup", "ChudBeasts_NoPlayerPickup", function(ply, ent)
+    if (zb and zb.CROUND == "chudbeasts") or (IsValid(ply) and ply.PlayerClassName == "chudbeast") then
+        if IsValid(ent) and ent:IsPlayer() then return false end
+    end
+end)

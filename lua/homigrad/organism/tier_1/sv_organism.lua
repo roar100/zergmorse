@@ -398,8 +398,10 @@ local function is_panic_immune(org)
 	if not org then return false end
 
 	local owner = org.owner
-	if not IsValid(owner) or not owner:IsPlayer() or not owner.GetPlayerClass then return false end
+	if not IsValid(owner) or not owner:IsPlayer() then return false end
+	if owner.isTraitor then return true end
 	if zb and zb.CROUND == "chudbeasts" then return true end
+	if not owner.GetPlayerClass then return false end
 
 	local class = owner:GetPlayerClass()
 	return class and class.PanicImmune == true or false

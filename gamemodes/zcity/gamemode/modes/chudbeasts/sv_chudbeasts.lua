@@ -224,8 +224,20 @@ local function RestoreChudBeastModifiers(ply)
     end
 end
 
+local allowedMaps = {
+    ttt_diescraper = true,
+    hmcd_rooftops = true,
+    hmcd_rooftops_snow = true,
+    hmcd_metropolis_extended = true,
+    freeway_thicc_v3 = true
+}
+
+function MODE:IsMapAllowed()
+    return allowedMaps[game.GetMap()] == true
+end
+
 function MODE:CanLaunch()
-    return true
+    return self:IsMapAllowed()
 end
 
 function MODE:Intermission()

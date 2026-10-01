@@ -524,6 +524,11 @@ local function fakeLegKickHit(ply, ragdoll, state)
 	local phys = ent:GetPhysicsObjectNum(tr.PhysicsBone or 0)
 	if !ent:IsPlayer() and not IsValid(phys) then return end
 
+	local kickTarget = hg.RagdollOwner(ent) or ent
+	if IsValid(kickTarget) and kickTarget:IsPlayer() then
+		hook.Run("HomigradLegKickHit", ply, kickTarget, ent)
+	end
+
 	local dmginfo = DamageInfo()
 	dmginfo:SetAttacker(ply)
 	dmginfo:SetInflictor(IsValid(ply:GetActiveWeapon()) and ply:GetActiveWeapon() or ply)
@@ -1249,7 +1254,9 @@ hook.Add("Think", "Fake", function()
 						trace = util_TraceLine(tr)
 					end
 
-					if IsValid(choking) or (trace.Hit and not trace.HitSky) then
+					if (IsValid(choking) or (trace.Hit and not trace.HitSky))
+                        and (not (ply.PlayerClassName == "chudbeast" or (zb and zb.CROUND == "chudbeasts"))
+                            or not (IsValid(trace.Entity) and trace.Entity:IsPlayer())) then
 						ent = IsValid(choking) and choking or trace.Entity
 						ragdoll.staminaLeftModifyer = 1.5 - trace.HitNormal.z
 
@@ -1337,7 +1344,9 @@ hook.Add("Think", "Fake", function()
 						trace = util_TraceLine(tr)
 					end
 					
-					if IsValid(choking) or (trace.Hit and not trace.HitSky) then
+					if (IsValid(choking) or (trace.Hit and not trace.HitSky))
+                        and (not (ply.PlayerClassName == "chudbeast" or (zb and zb.CROUND == "chudbeasts"))
+                            or not (IsValid(trace.Entity) and trace.Entity:IsPlayer())) then
 						ent = trace.Entity
 						ragdoll.staminaRightModifyer = 1.5 - trace.HitNormal.z
 						

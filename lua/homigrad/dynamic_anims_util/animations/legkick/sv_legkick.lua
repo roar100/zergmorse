@@ -314,6 +314,9 @@ function PLAYER:LegAttack()
 					local shieldTarget = hg.RagdollOwner(ent) or ent
 					local inflictor = self:GetWeapon(handClass)
 					if IsValid(shieldTarget) and shieldTarget:IsPlayer() and hook.Run("hg_ShieldKickBlock", shieldTarget, self, inflictor, self:EyePos(), tr.HitPos) then continue end
+					if IsValid(shieldTarget) and shieldTarget:IsPlayer() then
+						hook.Run("HomigradLegKickHit", self, shieldTarget, ent)
+					end
 
                     if not soundplayed then
                         soundplayed = true

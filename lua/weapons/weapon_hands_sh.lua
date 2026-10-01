@@ -730,6 +730,10 @@ local pickupWhiteList = {
 	["prop_physics_multiplayer"] = true
 }
 
+local function ChudBeastNoPlayerGrab(ply)
+    return IsValid(ply) and (ply.PlayerClassName == "chudbeast" or (zb and zb.CROUND == "chudbeasts"))
+end
+
 function SWEP:CanPickup(ent)
 	if ent:IsNPC() or ent:IsNextBot() then return false end
 	if ent:IsPlayer() then return false end
@@ -809,7 +813,7 @@ function SWEP:SecondaryAttack()
 				tr.Entity.Touched = true
 				self:ApplyForce()
 			--end
-		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() then
+		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() and not ChudBeastNoPlayerGrab(owner) then
 			local Dist = (select(1, hg.eye(owner)) - tr.HitPos):Length()
 			if Dist < self.ReachDistance then
 				sound.Play("Flesh.ImpactSoft", owner:GetShootPos(), 65, math.random(90, 110))
@@ -1130,6 +1134,7 @@ function SWEP:GetCarrying()
 end
 
 function SWEP:SetCarrying(ent, bone, pos, dist)
+    if IsValid(ent) and ChudBeastNoPlayerGrab(self:GetOwner()) and ent:IsPlayer() then return end
 	local owner = self:GetOwner()
 	if not IsValid(owner) then return end
 
@@ -1743,6 +1748,7 @@ function hg.RemoveCarryEnt2(ent)
 end
 
 function hg.SetCarryEnt2(ply, ent, bone, mass, carrypos, targetpos, targetang, dist)
+    if IsValid(ent) and ChudBeastNoPlayerGrab(ply) and ent:IsPlayer() then return end
 	if not IsValid(ent) then
 		local ent2 = ply:GetNetVar("carryent2")
 

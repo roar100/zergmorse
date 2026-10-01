@@ -25,6 +25,7 @@ local ZB_FORCED_MODE_POOL = {
         ["riot"] = true,
         ["juggernaut"] = true,
         ["president"] = true,
+        ["bartvshomer"] = true,
         ["chudbeasts"] = true
 }
 local ZB_NO_BACK_TO_BACK_MODES = {
@@ -142,6 +143,10 @@ function CurrentRound()
 end
 
 function NextRound(round, direct)
+    local requestedMode = zb.modes[round]
+    if requestedMode and requestedMode.IsMapAllowed and not requestedMode:IsMapAllowed() then
+        round = ZB_ResolveNextRound("hmcd")
+    end
 	if ZB_HasChangeLevel() then
 		zb.nextround = "coop"
 	else
@@ -578,6 +583,7 @@ function zb.GetModesInfo()
 	local modesInfo = {}
 
 	for name, mode in pairs(zb.modes) do
+		if mode.IsMapAllowed and not mode:IsMapAllowed() then continue end
 		if ZB_FORCE_LIMITED_MODE_POOL and !ZB_FORCED_MODE_POOL[name] then continue end
 		if name == "hmcd" then
 			table.insert(modesInfo, {

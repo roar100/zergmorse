@@ -112,7 +112,14 @@ local function FormatPoliceArrivalTime(timeLeft)
 end
 
 hook.Add("HUDPaint","FUCKINGSAMENAMEUSEDINHOOKFUCKME",function()
-    if zb and zb.CROUND == "realish" then return end
+    if zb and zb.CROUND == "realish" then
+        local ply = LocalPlayer()
+        if not IsValid(ply) then return end
+        local livesKey = ply:Team() == 0 and "Realish_ATLAS_Lives" or "Realish_REVENANT_Lives"
+        -- Hide behind the deployment menu only while respawns are still available.
+        if GetGlobalInt(livesKey, 50) > 0 then return end
+        if ply:GetNWBool("Realish_IsHero", false) and ply:GetNWInt("Realish_HeroLives", 0) > 0 then return end
+    end
     if LocalPlayer():Alive() then return end
 	local spect = LocalPlayer():GetNWEntity("spect")
 	if not IsValid(spect) then return end

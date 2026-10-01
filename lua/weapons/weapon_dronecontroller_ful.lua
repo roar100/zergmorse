@@ -19,7 +19,7 @@ SWEP.ViewModelFOV = 80
 SWEP.HoldType = "grenade"
 SWEP.DrawAmmo = false
 SWEP.DrawCrosshair = true
-SWEP.Instructions = "ЛКМ — бросить и подключиться\nМышь — поворачивать дрон и направление полёта\nW — точно по направлению камеры\nS — точно назад от направления камеры\nA/D — движение влево/вправо\nE — отключиться, дрон останется\nE рядом — подключиться снова\nR — взорвать дрон\nZ — включить/выключить фонарь"
+SWEP.Instructions = "LMB — launch and connect Mouse — rotate drone and flight direction W — move in camera direction S — move backward relative to camera direction A/D — move left/right E — disconnect (drone remains) E (near drone) — reconnect R — detonate drone Z — toggle flashlight"
 
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = -1
@@ -79,14 +79,14 @@ function SWEP:PrimaryAttack()
         if tr.Hit then
             self:SetNWBool("FCDroneUsed", false)
             owner:EmitSound("buttons/button10.wav", 65, 100)
-            owner:ChatPrint("Недостаточно места, чтобы бросить дрон.")
+            owner:ChatPrint("There isn't enough space to launch the drone.")
             return
         end
 
         local drone = ents.Create("kamikaze")
         if not IsValid(drone) then
             self:SetNWBool("FCDroneUsed", false)
-            owner:ChatPrint("Не удалось создать дрон.")
+            owner:ChatPrint("Failed to create the drone.")
             return
         end
 
@@ -116,7 +116,7 @@ function SWEP:PrimaryAttack()
 
             if not drone.SetDriver or not drone:SetDriver(owner) then
                 drone:Remove()
-                owner:ChatPrint("Не удалось подключиться к дрону.")
+                owner:ChatPrint("Failed to connect to the drone.")
                 return
             end
 

@@ -336,9 +336,9 @@ local info_social_links = {
     },
    {
         title = "zergmorse (EU)",
-        subtitle = "A EU Server hosting a version of Chudmorse.",
+        subtitle = "A EU Server hosting a modified version of Chudmorse.",
         url = "https://discord.gg/cAwPmgD7qu",
-        icon = Material("vgui/zerg.png", "smooth")
+        icon = Material("vgui/zergcredit.png", "smooth")
     }
 }
 local info_social_icon_size = MenuUnit(24)

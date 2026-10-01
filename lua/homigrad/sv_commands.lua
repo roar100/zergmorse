@@ -2,20 +2,44 @@ COMMANDS = COMMANDS or {}
 
 local validUserGroupSuperAdmin = {
 	superadmin = true,
+	owner = true,
+	coowner = true,
+	["co-owner"] = true,
+	["owner/co-owner"] = true,
 }
 
 local validUserGroup = {
 	admin = true,
 }
 
+local function UserGroupMatches(ply, acceptedGroups)
+	if not IsValid(ply) then return false end
+
+	local group = string.lower(tostring(ply:GetUserGroup() or "user"))
+	local groups = ULib and ULib.ucl and ULib.ucl.groups
+	local visited = {}
+
+	while group ~= "" and not visited[group] do
+		if acceptedGroups[group] then return true end
+
+		visited[group] = true
+		local groupData = groups and groups[group]
+		local parent = groupData and groupData.inherit_from
+		if not isstring(parent) or parent == "" then break end
+
+		group = string.lower(parent)
+	end
+
+	return false
+end
+
 function COMMAND_GETACCES(ply)
 	if ply == Entity(0) then return 2 end
 
-	local group = ply:GetUserGroup()
-	if validUserGroup[group] then
-		return 1
-	elseif validUserGroupSuperAdmin[group] then
+	if UserGroupMatches(ply, validUserGroupSuperAdmin) then
 		return 2
+	elseif UserGroupMatches(ply, validUserGroup) then
+		return 1
 	end
 
 	return 0
@@ -28,47 +52,46 @@ function COMMAND_ACCES(ply,cmd)
 	return true
 end
 
-function COMMAND_GETARGS(args)
+function COMMAND_GETARGS(input)
+	local text = istable(input) and table.concat(input, " ") or tostring(input or "")
 	local newArgs = {}
-	local waitClose,waitCloseText
+	local current = {}
+	local inQuotes = false
 
-	for i,text in pairs(args) do
-		if not waitClose and string.sub(text,1,1) == "\"" then
-			waitClose = true
-
-			if string.sub(text,#text,#text) == "\n" then
-				newArgs[#newArgs + 1] = string.sub(text,2,#text - 1)
-
-				waitClose = nil
-			else
-				waitCloseText = string.sub(text,2,#text)
-			end
-
-			continue
-		end
-
-		if waitClose then
-			if string.sub(text,#text,#text) == "\"" then
-				waitClose = nil
-
-				newArgs[#newArgs + 1] = waitCloseText .. string.sub(text,1,#text - 1)
-			else
-				waitCloseText = waitCloseText .. string.sub(text,1,#text)
-			end
-
-			continue
-		end
-
-		newArgs[#newArgs + 1] = text
+	local function PushArgument()
+		if #current == 0 then return end
+		newArgs[#newArgs + 1] = table.concat(current)
+		current = {}
 	end
 
+	for index = 1, #text do
+		local character = string.sub(text, index, index)
+
+		if character == "\"" then
+			inQuotes = not inQuotes
+		elseif string.match(character, "%s") and not inQuotes then
+			PushArgument()
+		else
+			current[#current + 1] = character
+		end
+	end
+
+	PushArgument()
 	return newArgs
 end
 
 function COMMAND_Input(ply,args)
+	if not istable(args) or not args[1] then return false end
+
+	args[1] = string.lower(tostring(args[1]))
 	local cmd = COMMANDS[args[1]]
 	if not cmd then return false end
-	if not COMMAND_ACCES(ply,cmd) then return true,false end
+	if not COMMAND_ACCES(ply,cmd) then
+		if IsValid(ply) then
+			ply:ChatPrint("You do not have permission to use this command.")
+		end
+		return true,false
+	end
 
 	table.remove(args,1)
 
@@ -76,18 +99,33 @@ function COMMAND_Input(ply,args)
 end
 -- Мдаааа А ПЛЕЙРСЕЙ ДЛЯ КОГО НУЖЕН????
 hook.Add("HG_PlayerSay","commands-chat",function(ply, txtTbl, text)
-	COMMAND_Input(ply, COMMAND_GETARGS(string.Split(string.sub(text, 2, #text), " ")))
+	text = string.Trim(isstring(text) and text or (istable(txtTbl) and txtTbl[1]) or "")
+	if string.sub(text, 1, 1) ~= "!" then return end
+
+	local commandText = string.Trim(string.sub(text, 2))
+	if commandText == "" then return end
+
+	local handled = COMMAND_Input(ply, COMMAND_GETARGS(commandText))
+	if handled and istable(txtTbl) then
+		-- Execute recognized commands without broadcasting the command text.
+		txtTbl[1] = ""
+	end
 end)
 
 COMMANDS.help = {function(ply,args)
 	local text = ""
 
 	if args[1] then
-		local cmd = COMMANDS[args[1]]
+		local commandName = string.lower(tostring(args[1]))
+		local cmd = COMMANDS[commandName]
+		if not cmd or not COMMAND_ACCES(ply, cmd) then
+			ply:ChatPrint("Unknown command or insufficient permission: !" .. commandName)
+			return
+		end
 		local argsList = cmd[3]
 		if argsList then argsList = " - " .. argsList else argsList = "" end
 
-		text = text .. "	" .. args[1] .. argsList .. "\n"
+		text = text .. "	" .. commandName .. argsList .. "\n"
 	else
 		local list = {}
 		for name in pairs(COMMANDS) do list[#list + 1] = name end
@@ -222,25 +260,71 @@ local VIP_MODEL_WHITELIST = {
 		["models/player/corpse1.mdl"] = true,
 		["models/player/charple.mdl"] = true,
 		["models/dannio/pm/rizzler_costco.mdl"] = true,
+        ["models/dannio/pm/aj_costco.mdl"] = true,
 		["models/player/efeber/tonysop.mdl"] = true,
-		["models/dannio/pm/aj_costco.mdl"] = true,
 		["models/player/h3_masterchief_player.mdl"] = true,
 		["models/deadspace2023/dsrisaaclv3.mdl"] = true,
 		["models/player/group01/clark_playermodel.mdl"] = true,
-		["models/bindycot/player/po.mdl"] = true,
 		["models/player/ntwffelixkranken.mdl"] = true,
+        ["models/player/ntwfrosemary.mdl"] = true,
 		["models/i6nis/freddy_player.mdl"] = true,
         ["models/i6nis/bonnie_player.mdl"] = true,
         ["models/i6nis/chica_player.mdl"] = true,
         ["models/i6nis/foxy_player.mdl"] = true,
         ["models/player/chimpanzee/chimp.mdl"] = true,
-        ["models/player/rickality/morty.mdl"] = true,
+        ["models/player/rickality/rick2.mdl"] = true,
+        ["models/ats/mgs2snake/mgs2snake.mdl"] = true,
+        ["models/player/pizzaroll/l4dtank.mdl"] = true,
+        ["models/player/old_snake.mdl"] = true,
+        ["models/electric/clown/clown_pm.mdl"] = true,
+        ["models/dannio/pm/bigjustice_costco.mdl"] = true,
+        ["models/player/walterv2.mdl"] = true,
 	}
 
 	local function NormalizeSetModelPath(mdl)
 		mdl = string.Trim(string.lower(tostring(mdl or "")))
 		mdl = string.Replace(mdl, "\\", "/")
 		return mdl
+	end
+
+	local SETMODEL_STAFF_GROUPS = {
+		mod = true,
+		moderator = true,
+		admin = true,
+		superadmin = true,
+		owner = true,
+		coowner = true,
+		["co-owner"] = true,
+		["owner/co-owner"] = true,
+	}
+
+	local SETMODEL_BLOCKED_ROUNDS = {
+		juggernaut = "Juggernaut",
+		tdm = "TDM",
+		riot = "Riot",
+		chudbeasts = "Chud Beasts",
+	}
+
+	-- ULX servers commonly use custom groups which inherit from moderator/admin.
+	-- Walk the ULib inheritance chain instead of relying on IsAdmin(), since that
+	-- can promote a moderator into the full-admin targeting branch on some setups.
+	local function SetModelGroupMatches(ply, acceptedGroups)
+		local group = string.lower(tostring(ply:GetUserGroup() or "user"))
+		local groups = ULib and ULib.ucl and ULib.ucl.groups
+		local visited = {}
+
+		while group ~= "" and not visited[group] do
+			if acceptedGroups[group] then return true end
+
+			visited[group] = true
+			local groupData = groups and groups[group]
+			local parent = groupData and groupData.inherit_from
+			if not isstring(parent) or parent == "" then break end
+
+			group = string.lower(parent)
+		end
+
+		return false
 	end
 
 	local function FindZCityAppearanceModel(mdl)
@@ -336,76 +420,81 @@ local VIP_MODEL_WHITELIST = {
 	end
 
 	COMMANDS.setmodel = {function(ply, args)
-		local group = string.lower(ply:GetUserGroup() or "user")
-		local isVIP = group == "vip"
-		local isModerator = group == "moderator" or group == "mod"
-		local isAdmin = ply:IsAdmin()
-		local canModerateModels = isModerator or isAdmin
-
-		if not isVIP and not canModerateModels then
-			ply:ChatPrint("You do not have permission to use this command.")
+		local canModerateModels = SetModelGroupMatches(ply, SETMODEL_STAFF_GROUPS)
+		local activeRound = zb and string.lower(tostring(zb.CROUND or "")) or ""
+		local blockedRoundName = SETMODEL_BLOCKED_ROUNDS[activeRound]
+		if blockedRoundName then
+			ply:ChatPrint("!setmodel is disabled during " .. blockedRoundName .. ".")
 			return
 		end
-
 		if not args[1] then
-			ply:ChatPrint("Usage: !setmodel <model/default> OR !setmodel <player> <model/default>")
+			ply:ChatPrint("Usage: !setmodel <model/default> OR !setmodel <player/*> <model/default>")
+			return
+		end
+		if #args > 1 and not canModerateModels then
+			ply:ChatPrint("Only moderators and above can change other players' models.")
 			return
 		end
 
-		local target = ply
+		local targets = {ply}
 		local requestedModel = args[1]
+		local allPlayers = false
+		if #args > 1 then
+			local targetName = table.concat(args, " ", 1, #args - 1)
+			requestedModel = args[#args]
+			if targetName == "*" then
+				allPlayers = true
+				targets = player.GetAll()
+			else
+				local matches = player.GetListByName(targetName)
+				local target = matches and matches[1]
+				if not IsValid(target) then
+					ply:ChatPrint("Player not found: " .. targetName)
+					return
+				end
+				targets = {target}
+			end
+		end
 
-		-- Only admins can target another player. VIPs and moderators can only
-		-- change their own model.
-		if isAdmin and #args > 1 then
-			local matches = player.GetListByName(args[1])
-			target = matches and matches[1] or nil
-			requestedModel = args[2]
-
-			if not IsValid(target) then
-				ply:ChatPrint("Player not found: " .. tostring(args[1]))
+		local mdl = NormalizeSetModelPath(requestedModel)
+		local zcityAppearanceName
+		if mdl ~= "default" then
+			zcityAppearanceName = FindZCityAppearanceModel(mdl)
+			if not canModerateModels and not VIP_MODEL_WHITELIST[mdl] and not zcityAppearanceName then
+				ply:ChatPrint("That model is not available for non-staff players.")
+				return
+			end
+			local usable, reason = IsUsableZCityRagdollModel(mdl)
+			if not usable then
+				ply:ChatPrint(reason)
 				return
 			end
 		end
 
-		if not IsValid(target) or not target:Alive() then
-			ply:ChatPrint("The player must be alive to change models.")
-			return
-		end
-
-		local mdl = NormalizeSetModelPath(requestedModel)
-
-		if mdl == "default" then
-			if RestoreSetModelAppearance(target) then
-				ply:ChatPrint(target == ply and "Your normal Z-City appearance was restored." or (target:Name() .. "'s normal Z-City appearance was restored."))
+		local changed, skipped = 0, 0
+		for _, target in ipairs(targets) do
+			if IsValid(target) and target:Alive() then
+				local applied = true
+				if mdl == "default" then
+					applied = RestoreSetModelAppearance(target)
+				elseif zcityAppearanceName then
+					applied = ApplyTemporaryZCityModel(target, mdl)
+				else
+					ApplyTemporaryCustomModel(target, mdl)
+				end
+				if applied then changed = changed + 1 else skipped = skipped + 1 end
 			else
-				ply:ChatPrint("Could not restore the normal Z-City appearance.")
+				skipped = skipped + 1
 			end
-			return
 		end
-
-		local zcityAppearanceName = FindZCityAppearanceModel(mdl)
-
-		-- VIPs may use only explicitly whitelisted custom models or the built-in
-		-- models registered by Z-City's appearance system.
-		if not canModerateModels and not VIP_MODEL_WHITELIST[mdl] and not zcityAppearanceName then
-			ply:ChatPrint("That model is not available for VIPs.")
-			return
-		end
-
-		local usable, reason = IsUsableZCityRagdollModel(mdl)
-		if not usable then
-			ply:ChatPrint(reason)
-			return
-		end
-
-		if zcityAppearanceName then
-			ApplyTemporaryZCityModel(target, mdl)
+		if allPlayers then
+			ply:ChatPrint("Updated models for " .. changed .. " players" .. (skipped > 0 and ("; skipped " .. skipped .. " dead/unavailable players") or "") .. ".")
+		elseif changed > 0 then
+			local who = targets[1] == ply and "Your" or (targets[1]:Name() .. "'s")
+			ply:ChatPrint(mdl == "default" and (who .. " normal Z-City appearance was restored.") or (who .. " model was set to " .. mdl))
 		else
-			ApplyTemporaryCustomModel(target, mdl)
+			ply:ChatPrint("The player must be alive and have an available appearance to change models.")
 		end
-
-		ply:ChatPrint((target == ply and "Your model was set to " or (target:Name() .. "'s model was set to ")) .. mdl)
 	end, 0}
 
 	--// Aliases
