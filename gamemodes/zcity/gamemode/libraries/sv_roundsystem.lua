@@ -26,7 +26,7 @@ local ZB_FORCED_MODE_POOL = {
         ["juggernaut"] = true,
         ["president"] = true,
         ["bartvshomer"] = true,
-        ["chudbeasts"] = true
+        ["lastshift"] = true,
 }
 local ZB_NO_BACK_TO_BACK_MODES = {
         ["dm"] = true,
