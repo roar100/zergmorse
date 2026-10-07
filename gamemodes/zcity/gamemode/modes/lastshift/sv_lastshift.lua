@@ -14,7 +14,6 @@ local MONSTER_RELEASE_TIME = 30
 local BLACKOUT_TIME = 120
 local EXIT_DISTANCE = 120
 
-
 local STALK_DURATION = 4
 local STALK_DISTANCE = 700
 
@@ -321,13 +320,14 @@ local function SpawnMonster()
 		return
 	end
 
+	monster:SetModel("models/diverge/nulbornpm/nulborn.mdl")
 	monster:SetPos(FindMonsterSpawn())
 	monster:SetAngles(Angle(0, math.random(0, 359), 0))
 	monster:Spawn()
 	monster:Activate()
 
-	monster:SetMaxHealth(700)
-	monster:SetHealth(700)
+	monster:SetMaxHealth(999999)
+	monster:SetHealth(999999)
 
 	monster.LastShiftMonster = true
 	monsterReleased = true
@@ -562,8 +562,8 @@ local function StartBlackout()
 	DisableMapLights()
 
 	if IsValid(monster) then
-		monster:SetMaxHealth(1000)
-		monster:SetHealth(math.max(monster:Health(), 1000))
+		monster:SetMaxHealth(999999)
+		monster:SetHealth(999999)
 	end
 
 	nextStalkEvent = math.min(
@@ -733,6 +733,18 @@ local function CheckExit()
 		end
 	end
 end
+
+hook.Add("EntityTakeDamage", "LastShiftMonsterInvincible", function(ent, dmg)
+	if not IsValid(ent) then
+		return
+	end
+
+	if ent.LastShiftMonster then
+		dmg:SetDamage(0)
+		dmg:SetDamageForce(vector_origin)
+		return true
+	end
+end)
 
 function MODE.GuiltCheck()
 	return 1, true
@@ -915,4 +927,3 @@ function MODE:EndRound()
 
 	roundStartedAt = 0
 end
---toodles--
