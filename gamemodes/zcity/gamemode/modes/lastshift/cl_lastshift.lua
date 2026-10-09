@@ -21,7 +21,12 @@ local objectiveName = ""
 local objectiveStart = 0
 local objectiveDuration = 10
 
+local exitTimerActive = false
+local exitTimerStart = 0
+local exitTimerDuration = 90
+
 local introMusic
+local escapeMusic
 
 MODE.DynamicFadeScreenEndTime = 0
 MODE.CursorLerpX = 0
@@ -65,10 +70,24 @@ surface.CreateFont("LastShift_Small", {
 	antialias = true
 })
 
+surface.CreateFont("LastShift_ExitBig", {
+	font = fontFace,
+	size = ScreenScale(26),
+	weight = 700,
+	antialias = true
+})
+
 local function StopIntroMusic()
 	if introMusic then
 		introMusic:Stop()
 		introMusic = nil
+	end
+end
+
+local function StopEscapeMusic()
+	if escapeMusic then
+		escapeMusic:Stop()
+		escapeMusic = nil
 	end
 end
 
@@ -88,6 +107,16 @@ local function StartIntroMusic()
 	end)
 end
 
+local function StartEscapeMusic()
+	StopEscapeMusic()
+
+	escapeMusic = CreateSound(LocalPlayer(), "music/HL2_song20_submix0.mp3")
+
+	if escapeMusic then
+		escapeMusic:PlayEx(0.95, 100)
+	end
+end
+
 local function Reset()
 	totalObjectives = 5
 	completedObjectives = 0
@@ -95,6 +124,10 @@ local function Reset()
 	exitUnlocked = false
 	blackout = false
 	escaped = false
+
+	exitTimerActive = false
+	exitTimerStart = 0
+	exitTimerDuration = 90
 
 	introStart = -math.huge
 	blackoutStart = -math.huge
@@ -107,6 +140,7 @@ local function Reset()
 	MODE.DynamicFadeScreenEndTime = 0
 
 	StopIntroMusic()
+	StopEscapeMusic()
 end
 
 local function EaseOut(value)
@@ -161,6 +195,14 @@ local function DrawTiltedText(text, font, x, y, color, alpha, angle)
 	cam.PopModelMatrix()
 end
 
+local function GetExitEntity()
+	for _, ent in ipairs(ents.GetAll()) do
+		if ent:GetNWBool("LastShiftExit", false) then
+			return ent
+		end
+	end
+end
+
 net.Receive("lastshift_start", function()
 	totalObjectives = net.ReadUInt(4)
 
@@ -168,6 +210,9 @@ net.Receive("lastshift_start", function()
 	exitUnlocked = false
 	blackout = false
 	escaped = false
+
+	exitTimerActive = false
+	exitTimerStart = 0
 
 	activeObjective = nil
 	objectiveName = ""
@@ -218,9 +263,20 @@ net.Receive("lastshift_blackout", function()
 	blackoutStart = CurTime()
 end)
 
+net.Receive("lastshift_escape_timer", function()
+	exitTimerDuration = net.ReadFloat()
+	exitTimerStart = CurTime()
+	exitTimerActive = true
+
+	StartEscapeMusic()
+end)
+
 net.Receive("lastshift_escape", function()
 	escaped = true
 	activeObjective = nil
+	exitTimerActive = false
+
+	StopEscapeMusic()
 end)
 
 net.Receive("lastshift_event", function()
@@ -230,6 +286,7 @@ net.Receive("lastshift_event", function()
 		chat.AddText(Color(150, 30, 30), "Something is inside the building.")
 	elseif event == "exit" then
 		chat.AddText(Color(60, 210, 90), "The emergency exit is unlocked.")
+		surface.PlaySound("buttons/button14.wav")
 	elseif event == "stare" then
 		surface.PlaySound("ambient/atmosphere/cave_hit5.wav")
 	end
@@ -376,6 +433,58 @@ local function DrawObjectiveTimer()
 		TEXT_ALIGN_CENTER,
 		TEXT_ALIGN_CENTER
 	)
+end
+
+local function DrawEscapeTimer()
+	if not exitTimerActive or escaped then
+		return
+	end
+
+	local elapsed = CurTime() - exitTimerStart
+	local timeLeft = math.max(exitTimerDuration - elapsed, 0)
+
+	local mins = math.floor(timeLeft / 60)
+	local secs = math.floor(timeLeft % 60)
+
+	local timerText = string.format("%02d:%02d", mins, secs)
+
+	local pulse = 0.85 + math.sin(CurTime() * 6) * 0.15
+
+	DrawShadowText(
+		"REACH THE EXIT",
+		"LastShift_ExitBig",
+		ScrW() * 0.5,
+		ScrH() * 0.12,
+		Color(255, 65, 65, 255 * pulse),
+		TEXT_ALIGN_CENTER,
+		TEXT_ALIGN_CENTER
+	)
+
+	DrawShadowText(
+		timerText,
+		"LastShift_Header",
+		ScrW() * 0.5,
+		ScrH() * 0.18,
+		Color(255, 255, 255, 255),
+		TEXT_ALIGN_CENTER,
+		TEXT_ALIGN_CENTER
+	)
+
+	local exit = GetExitEntity()
+
+	if IsValid(exit) then
+		local distance = math.floor(LocalPlayer():GetPos():Distance(exit:GetPos()) / 52.49)
+
+		DrawShadowText(
+			"EMERGENCY EXIT  " .. distance .. "m",
+			"LastShift_Body",
+			ScrW() * 0.5,
+			ScrH() * 0.23,
+			Color(70, 255, 100, 255),
+			TEXT_ALIGN_CENTER,
+			TEXT_ALIGN_CENTER
+		)
+	end
 end
 
 local function DrawIntro()
@@ -561,15 +670,13 @@ local function DrawObjectiveCircle(ent)
 	local top = center + Vector(0, 0, 2600)
 
 	local pulse = 0.75 + math.sin(CurTime() * 2.5) * 0.25
-	local beamWidthOuter = 24 + math.sin(CurTime() * 2) * 4
-	local beamWidthInner = 8 + math.sin(CurTime() * 2.4) * 2
 
 	render.SetMaterial(ringMaterial)
 
 	render.DrawBeam(
 		center,
 		top,
-		beamWidthOuter,
+		24,
 		0,
 		1,
 		Color(25, 255, 65, 105)
@@ -578,7 +685,7 @@ local function DrawObjectiveCircle(ent)
 	render.DrawBeam(
 		center,
 		top,
-		beamWidthInner,
+		8,
 		0,
 		1,
 		Color(130, 255, 150, 230)
@@ -591,13 +698,6 @@ local function DrawObjectiveCircle(ent)
 		48 + pulse * 18,
 		48 + pulse * 18,
 		Color(65, 255, 100, 230)
-	)
-
-	render.DrawSprite(
-		top,
-		100 + pulse * 30,
-		100 + pulse * 30,
-		Color(80, 255, 110, 190)
 	)
 
 	local segments = 56
@@ -627,15 +727,79 @@ local function DrawObjectiveCircle(ent)
 
 		lastPoint = point
 	end
+end
 
-	render.DrawWireframeSphere(
+local function DrawExitMarker(ent)
+	if not IsValid(ent) then
+		return
+	end
+
+	if not ent:GetNWBool("LastShiftExitUnlocked", false) then
+		return
+	end
+
+	local center = ent:GetPos() + Vector(0, 0, 8)
+	local top = center + Vector(0, 0, 3200)
+
+	local pulse = 0.75 + math.sin(CurTime() * 3) * 0.25
+
+	render.SetMaterial(ringMaterial)
+
+	render.DrawBeam(
 		center,
-		radius,
-		32,
-		2,
-		Color(40, 255, 70, 35),
-		true
+		top,
+		36,
+		0,
+		1,
+		Color(20, 255, 70, 130)
 	)
+
+	render.DrawBeam(
+		center,
+		top,
+		12,
+		0,
+		1,
+		Color(180, 255, 190, 245)
+	)
+
+	render.SetMaterial(glowMaterial)
+
+	render.DrawSprite(
+		center + Vector(0, 0, 30),
+		100 + pulse * 35,
+		100 + pulse * 35,
+		Color(60, 255, 90, 240)
+	)
+
+	local radius = 150
+	local segments = 64
+	local lastPoint
+
+	render.SetMaterial(ringMaterial)
+
+	for i = 0, segments do
+		local angle = math.rad((i / segments) * 360)
+
+		local point = center + Vector(
+			math.cos(angle) * radius,
+			math.sin(angle) * radius,
+			0
+		)
+
+		if lastPoint then
+			render.DrawBeam(
+				lastPoint,
+				point,
+				12,
+				0,
+				1,
+				Color(40, 255, 80, 245)
+			)
+		end
+
+		lastPoint = point
+	end
 end
 
 function MODE:PostDrawTranslucentRenderables(bDepth, bSkybox, isDraw3DSkybox)
@@ -651,6 +815,10 @@ function MODE:PostDrawTranslucentRenderables(bDepth, bSkybox, isDraw3DSkybox)
 		if ent:GetNWBool("LastShiftObjective", false) then
 			DrawObjectiveCircle(ent)
 		end
+
+		if ent:GetNWBool("LastShiftExit", false) then
+			DrawExitMarker(ent)
+		end
 	end
 end
 
@@ -662,6 +830,7 @@ function MODE:HUDPaint()
 
 	DrawObjectiveHUD()
 	DrawObjectiveTimer()
+	DrawEscapeTimer()
 	DrawBlackout()
 	DrawEscape()
 end
@@ -701,6 +870,7 @@ end
 function MODE:RoundStart()
 	escaped = false
 	blackout = false
+	exitTimerActive = false
 end
 
 function MODE:EndRound()
@@ -714,6 +884,7 @@ end)
 hook.Add("Think", "LastShiftMusicCleanup", function()
 	if zb.CROUND ~= "lastshift" then
 		StopIntroMusic()
+		StopEscapeMusic()
 	end
 end)
 
