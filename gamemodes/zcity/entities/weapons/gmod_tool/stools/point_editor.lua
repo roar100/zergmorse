@@ -227,3 +227,4 @@ function TOOL:DrawToolScreen(width, height)
 
 	draw.SimpleText(point_editor:GetString(), "ZB_ScrappersSmall", width / 2, height * 0.7, zb.Points[point_editor:GetString()].Color or color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 end
+-- potato --
