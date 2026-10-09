@@ -13,6 +13,7 @@ local OBJECTIVE_TIME = 10
 local MONSTER_RELEASE_TIME = 30
 local BLACKOUT_TIME = 120
 local EXIT_DISTANCE = 120
+local EXIT_TIME_LIMIT = 90
 
 local STALK_DURATION = 4
 local STALK_DISTANCE = 700
@@ -26,6 +27,7 @@ local monster
 
 local completedObjectives = 0
 local exitUnlocked = false
+local exitDeadline = 0
 local blackoutStarted = false
 local monsterReleased = false
 local roundStartedAt = 0
@@ -43,6 +45,7 @@ util.AddNetworkString("lastshift_progress")
 util.AddNetworkString("lastshift_objective_timer")
 util.AddNetworkString("lastshift_blackout")
 util.AddNetworkString("lastshift_escape")
+util.AddNetworkString("lastshift_escape_timer")
 util.AddNetworkString("lastshift_event")
 util.AddNetworkString("lastshift_end")
 
@@ -132,6 +135,7 @@ local function Cleanup()
 	monsterStalking = false
 	monsterStalkEnd = 0
 	nextStalkEvent = 0
+	exitDeadline = 0
 
 	RestoreMap()
 end
@@ -248,10 +252,6 @@ local function SpawnObjectives()
 		ent:SetNWFloat("LastShiftObjectiveRadius", OBJECTIVE_RADIUS)
 
 		objectives[#objectives + 1] = ent
-	end
-
-	if #objectives < OBJECTIVE_COUNT then
-		print("[LastShift] WARNING: only spawned " .. #objectives .. " objectives")
 	end
 end
 
@@ -561,16 +561,6 @@ local function StartBlackout()
 
 	DisableMapLights()
 
-	if IsValid(monster) then
-		monster:SetMaxHealth(999999)
-		monster:SetHealth(999999)
-	end
-
-	nextStalkEvent = math.min(
-		nextStalkEvent,
-		CurTime() + math.random(8, 15)
-	)
-
 	net.Start("lastshift_blackout")
 	net.Broadcast()
 end
@@ -589,13 +579,11 @@ local function FakeEvent()
 	end
 
 	local ply = players[math.random(#players)]
-
 	local ang = ply:EyeAngles()
 
 	ang.pitch = 0
 
 	local pos = ply:GetPos() - ang:Forward() * math.random(250, 650)
-
 	pos = pos + VectorRand() * 100
 
 	sound.Play(
@@ -605,6 +593,32 @@ local function FakeEvent()
 		math.random(85, 110),
 		0.8
 	)
+end
+
+local function StartEscapeTimer()
+	exitDeadline = CurTime() + EXIT_TIME_LIMIT
+
+	net.Start("lastshift_escape_timer")
+		net.WriteFloat(EXIT_TIME_LIMIT)
+	net.Broadcast()
+end
+
+local function KillPlayersOutsideExit()
+	for _, ply in player.Iterator() do
+		if ply:Team() == TEAM_SPECTATOR then
+			continue
+		end
+
+		if ply.LastShiftEscaped then
+			continue
+		end
+
+		if ply:Alive() then
+			ply:Kill()
+		end
+	end
+
+	exitDeadline = 0
 end
 
 local function CompleteObjective(ply, objective)
@@ -624,7 +638,7 @@ local function CompleteObjective(ply, objective)
 		end
 	end
 
-	if completedObjectives >= OBJECTIVE_COUNT then
+	if completedObjectives >= OBJECTIVE_COUNT and not exitUnlocked then
 		exitUnlocked = true
 
 		if IsValid(exitEntity) then
@@ -643,6 +657,8 @@ local function CompleteObjective(ply, objective)
 		net.Start("lastshift_event")
 			net.WriteString("exit")
 		net.Broadcast()
+
+		StartEscapeTimer()
 	end
 
 	SendProgress()
@@ -769,6 +785,7 @@ function MODE:Intermission()
 
 	completedObjectives = 0
 	exitUnlocked = false
+	exitDeadline = 0
 	blackoutStarted = false
 	monsterReleased = false
 	monsterStalking = false
@@ -824,6 +841,7 @@ function MODE:RoundStart()
 
 	completedObjectives = 0
 	exitUnlocked = false
+	exitDeadline = 0
 	blackoutStarted = false
 	monsterReleased = false
 	monsterStalking = false
@@ -878,6 +896,10 @@ function MODE:RoundThink()
 
 		UpdateObjectiveZones()
 		CheckExit()
+	end
+
+	if exitDeadline > 0 and CurTime() >= exitDeadline then
+		KillPlayersOutsideExit()
 	end
 
 	if nextFakeEvent <= CurTime() then
